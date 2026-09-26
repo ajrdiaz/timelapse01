@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.cache/
+.pytest_cache/
+projects/*
+!projects/.gitkeep
+output/
+.env
+node_modules/
+frontend/dist/
+*.tmp.png
+.venv/

@@ -1,0 +1,330 @@
+{
+  "version": 1,
+  "general": {
+    "titulo": "Búnker secreto → cuarto gamer",
+    "duracion_seg": 62.0,
+    "fps": 30,
+    "resolucion": "1080x1920",
+    "idioma": "es",
+    "seed": 7,
+    "estilo_visual": "corte_lateral"
+  },
+  "gancho": {
+    "lineas": [
+      {
+        "texto": "CONSTRUÍ UN BÚNKER",
+        "color": "#FFFFFF"
+      },
+      {
+        "texto": "EN MI PATIO",
+        "color": "#FFD400"
+      }
+    ],
+    "duracion_seg": 2.5,
+    "zoom_out": true,
+    "zoom_intensidad": 1.35
+  },
+  "etapas": [
+    {
+      "tipo": "marcado",
+      "titulo": "DÍA 1: EL PLAN",
+      "subtitulo": "mi esposa cree que es un huerto",
+      "inicio_seg": 2.5,
+      "duracion_seg": 2.5,
+      "dia_inicio": 1,
+      "dia_fin": 1,
+      "obreros": 2,
+      "pose": "apuntar",
+      "maquina": "ninguna",
+      "sfx": true
+    },
+    {
+      "tipo": "excavacion",
+      "titulo": "EXCAVACIÓN",
+      "subtitulo": "4 metros de pura tierra",
+      "inicio_seg": 5.0,
+      "duracion_seg": 7.0,
+      "dia_inicio": 2,
+      "dia_fin": 9,
+      "obreros": 1,
+      "pose": "pala",
+      "maquina": "excavadora",
+      "sfx": true
+    },
+    {
+      "tipo": "grava_acero",
+      "titulo": "GRAVA Y ACERO",
+      "subtitulo": "la base de todo",
+      "inicio_seg": 12.0,
+      "duracion_seg": 3.5,
+      "dia_inicio": 10,
+      "dia_fin": 12,
+      "obreros": 2,
+      "pose": "carretilla",
+      "maquina": "ninguna",
+      "sfx": true
+    },
+    {
+      "tipo": "losa",
+      "titulo": "LOSA DE PISO",
+      "subtitulo": "concreto del bueno",
+      "inicio_seg": 15.5,
+      "duracion_seg": 3.5,
+      "dia_inicio": 13,
+      "dia_fin": 15,
+      "obreros": 2,
+      "pose": "pala",
+      "maquina": "bomba_concreto",
+      "sfx": true
+    },
+    {
+      "tipo": "muros",
+      "titulo": "MUROS",
+      "subtitulo": "encofrar, vaciar, desencofrar",
+      "inicio_seg": 19.0,
+      "duracion_seg": 7.0,
+      "dia_inicio": 16,
+      "dia_fin": 27,
+      "obreros": 2,
+      "pose": "martillo",
+      "maquina": "bomba_concreto",
+      "sfx": true
+    },
+    {
+      "tipo": "techo",
+      "titulo": "TECHO DE CONCRETO",
+      "subtitulo": "25 cm de concreto armado",
+      "inicio_seg": 26.0,
+      "duracion_seg": 6.5,
+      "dia_inicio": 28,
+      "dia_fin": 37,
+      "obreros": 2,
+      "pose": "martillo",
+      "maquina": "bomba_concreto",
+      "sfx": true
+    },
+    {
+      "tipo": "impermeabilizacion",
+      "titulo": "IMPERMEABILIZANTE",
+      "subtitulo": "ni una gota va a entrar",
+      "inicio_seg": 32.5,
+      "duracion_seg": 3.0,
+      "dia_inicio": 38,
+      "dia_fin": 41,
+      "obreros": 2,
+      "pose": "pala",
+      "maquina": "ninguna",
+      "sfx": true
+    },
+    {
+      "tipo": "relleno",
+      "titulo": "RELLENO",
+      "subtitulo": "a esconder la evidencia",
+      "inicio_seg": 35.5,
+      "duracion_seg": 4.5,
+      "dia_inicio": 42,
+      "dia_fin": 48,
+      "obreros": 2,
+      "pose": "carretilla",
+      "maquina": "excavadora",
+      "sfx": true
+    },
+    {
+      "tipo": "acabados",
+      "titulo": "ACABADOS",
+      "subtitulo": "pasto nuevo, nadie sospecha",
+      "inicio_seg": 40.0,
+      "duracion_seg": 4.0,
+      "dia_inicio": 49,
+      "dia_fin": 58,
+      "obreros": 2,
+      "pose": "cargar",
+      "maquina": "ninguna",
+      "sfx": true
+    },
+    {
+      "tipo": "terminado",
+      "titulo": "TERMINADO",
+      "subtitulo": "parece un patio normal…",
+      "inicio_seg": 44.0,
+      "duracion_seg": 2.5,
+      "dia_inicio": 60,
+      "dia_fin": 60,
+      "obreros": 2,
+      "pose": "celebrar",
+      "maquina": "ninguna",
+      "sfx": true
+    },
+    {
+      "tipo": "pregunta",
+      "titulo": "",
+      "subtitulo": "",
+      "inicio_seg": 46.5,
+      "duracion_seg": 4.0,
+      "dia_inicio": 60,
+      "dia_fin": 60,
+      "obreros": 0,
+      "pose": "parado",
+      "maquina": "ninguna",
+      "sfx": true
+    },
+    {
+      "tipo": "revelacion",
+      "titulo": "",
+      "subtitulo": "",
+      "inicio_seg": 50.5,
+      "duracion_seg": 8.5,
+      "dia_inicio": 60,
+      "dia_fin": 60,
+      "obreros": 0,
+      "pose": "parado",
+      "maquina": "ninguna",
+      "sfx": true
+    },
+    {
+      "tipo": "cierre",
+      "titulo": "",
+      "subtitulo": "",
+      "inicio_seg": 59.0,
+      "duracion_seg": 3.0,
+      "dia_inicio": 60,
+      "dia_fin": 60,
+      "obreros": 0,
+      "pose": "parado",
+      "maquina": "ninguna",
+      "sfx": true
+    }
+  ],
+  "contador": {
+    "mostrar": true,
+    "prefijo": "DÍA",
+    "dias_totales": 60,
+    "barra": true,
+    "color_barra": "#FFD400"
+  },
+  "escenario": {
+    "ancho_m": 6.0,
+    "alto_m": 2.6,
+    "profundidad_m": 1.0,
+    "colores_suelo": [
+      "#7A5234",
+      "#6A4529",
+      "#58391F"
+    ],
+    "densidad_piedras": 0.5,
+    "fondo": {
+      "cerca": true,
+      "arbol": true,
+      "casa_vecino": true
+    },
+    "dia_noche": {
+      "activo": true,
+      "ciclos": 4,
+      "intensidad": 0.65
+    },
+    "nubes": true,
+    "vineta": 0.35
+  },
+  "personajes": {
+    "color_chaleco": "#FF7A00",
+    "color_casco": "#FFD400",
+    "color_pantalon": "#2C3E66",
+    "excavadora": {
+      "activa": true,
+      "color": "#F2B705",
+      "entrada_salida": true
+    },
+    "ocultar_obreros_noche": true
+  },
+  "revelacion": {
+    "tipo_interior": "gamer",
+    "color_acento": "#8A2BE2",
+    "color_leds": "#00E5FF",
+    "texto_pregunta": "¿Y POR DENTRO?",
+    "texto_falsa_expectativa": "¿REFUGIO PARA EL APOCALIPSIS?",
+    "remate_1": "NO.",
+    "remate_2": "ES MI CUARTO GAMER",
+    "flash_offset_seg": 0.0,
+    "zoom_camara": 1.45,
+    "callouts": [
+      {
+        "texto": "3 MONITORES",
+        "objeto": "monitores",
+        "aparicion_seg": 1.3
+      },
+      {
+        "texto": "SILLA GAMER",
+        "objeto": "silla",
+        "aparicion_seg": 2.3
+      },
+      {
+        "texto": "PC DE LA NASA",
+        "objeto": "pc",
+        "aparicion_seg": 3.3
+      },
+      {
+        "texto": "MINI REFRI",
+        "objeto": "minirefri",
+        "aparicion_seg": 4.3
+      },
+      {
+        "texto": "LEDS RGB",
+        "objeto": "leds",
+        "aparicion_seg": 5.3
+      }
+    ]
+  },
+  "cta": {
+    "final": {
+      "texto": "SÍGUEME PARA LA PARTE 2",
+      "color_fondo": "#FF2D55",
+      "color_texto": "#FFFFFF",
+      "aparicion_seg": 59.3,
+      "posicion": "arriba",
+      "animacion": "pop"
+    },
+    "intermedio": {
+      "activo": false,
+      "texto": "COMENTA QUÉ LE PONDRÍAS",
+      "aparicion_seg": 30.0,
+      "duracion_seg": 3.0,
+      "color_fondo": "#FFFFFF",
+      "color_texto": "#111111"
+    },
+    "texto_cierre": "Y NO PIENSO SALIR"
+  },
+  "tipografia": {
+    "fuente": "Anton",
+    "tamanos": {
+      "titulo": 92,
+      "subtitulo": 52,
+      "contador": 78,
+      "callout": 46
+    },
+    "contorno": 7,
+    "margen_superior": 150,
+    "guia_zonas_seguras": true
+  },
+  "audio": {
+    "musica": true,
+    "bpm": 112,
+    "progresion": "A menor: Am-F-C-G",
+    "estilo_obra": "yunque_marimba",
+    "estilo_drop": "electronico",
+    "volumen_musica": 0.8,
+    "volumen_sfx": 0.9,
+    "drop_sincronizado": true,
+    "lufs_objetivo": -14.0,
+    "musica_propia": null
+  },
+  "exportacion": {
+    "crf": 20,
+    "preset": "medium",
+    "max_mb": 50.0,
+    "portada": {
+      "generar": true,
+      "tiempo_seg": -1.0
+    },
+    "texto_publicacion": true
+  }
+}
