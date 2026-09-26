@@ -460,6 +460,13 @@ def normalize(x: np.ndarray, target: float) -> np.ndarray:
     return np.clip(x, -1, 1).astype(np.float32)
 
 
+def _fit(x: np.ndarray, n: int) -> np.ndarray:
+    """Recorta o rellena con silencio hasta n muestras."""
+    if len(x) >= n:
+        return x[:n]
+    return np.concatenate([x, np.zeros((n - len(x), x.shape[1]), x.dtype)])
+
+
 def build_audio(scene, project_dir: Optional[str] = None) -> np.ndarray:
     a = scene.audio
     dur = scene.general.duracion_seg
@@ -472,8 +479,8 @@ def build_audio(scene, project_dir: Optional[str] = None) -> np.ndarray:
             mus = load_music_file(str(p), dur)
         else:
             mus = music_track(scene, dur)
-        mix[: len(mus)] += mus[: len(mix)] * a.volumen_musica
-    mix += sfx_track(scene, dur)[: len(mix)] * a.volumen_sfx * 0.9
+        mix += _fit(mus, len(mix)) * a.volumen_musica
+    mix += _fit(sfx_track(scene, dur), len(mix)) * a.volumen_sfx * 0.9
     return normalize(mix, a.lufs_objetivo)
 
 

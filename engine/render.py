@@ -38,18 +38,27 @@ def ffmpeg_bin() -> str:
 
 # --- trabajador --------------------------------------------------------------------
 _R = None
+_INIT_ERR: Optional[str] = None
 
 
-def _init(scene_dict: dict, size, ss: int, fonts_dir: Optional[str]):
-    global _R
-    from engine.frame import FrameRenderer
+def _init(scene: Scene, size, ss: int, fonts_dir: Optional[str]):
+    """Inicializa el renderizador del trabajador. Un fallo aquí no debe tumbar el proceso (el pool
+    lo reiniciaría en bucle): se guarda y se lanza en el primer fotograma."""
+    global _R, _INIT_ERR
+    try:
+        from engine.frame import FrameRenderer
 
-    _R = FrameRenderer(Scene.model_validate(scene_dict), size=tuple(size), ss=ss, fonts_dir=fonts_dir)
+        _R = FrameRenderer(scene, size=tuple(size), ss=ss, fonts_dir=fonts_dir)
+    except Exception as e:  # pragma: no cover - se propaga en _frame
+        import traceback
+
+        _INIT_ERR = f"{e}\n{traceback.format_exc()}"
 
 
 def _frame(args) -> bytes:
-    t = args
-    return _R.render(t, preview=False).tobytes()
+    if _R is None:
+        raise RenderError("No se pudo inicializar el renderizador: " + (_INIT_ERR or "desconocido"))
+    return _R.render(args, preview=False).tobytes()
 
 
 def default_workers() -> int:
@@ -101,7 +110,7 @@ def render_video(scene: Scene, out_path: str, *, size=None, fps: Optional[int] =
            "-c:a", "aac", "-b:a", f"{AUDIO_KBPS}k", "-t", f"{dur:.3f}", "-movflags", "+faststart", tmp_out]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     ctx = mp.get_context("spawn")
-    pool = ctx.Pool(workers, initializer=_init, initargs=(scene.model_dump(), size, ss, fonts_dir))
+    pool = ctx.Pool(workers, initializer=_init, initargs=(scene, size, ss, fonts_dir))
     done = 0
     try:
         chunk = max(1, min(12, n // (workers * 4) or 1))
@@ -170,15 +179,15 @@ def render_cover(scene: Scene, out_png: str, fonts_dir: Optional[str] = None, si
     from engine.world import hex_rgb
 
     fr = FrameRenderer(scene, size=size, ss=2, fonts_dir=fonts_dir)
-    img = fr.render(cover_time(scene), preview=False).convert("RGBA")
+    img = fr.render(cover_time(scene), preview=False, ui=False).convert("RGBA")
     w, h = img.size
     u = w / 1080
     shade = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(shade).rectangle((0, int(h * 0.3), w, int(h * 0.62)), fill=(0, 0, 0, 110))
+    ImageDraw.Draw(shade).rectangle((0, int(h * 0.1), w, int(h * 0.36)), fill=(0, 0, 0, 110))
     img.alpha_composite(shade)
     fp = resolve_font(scene.tipografia.fuente, fonts_dir)
     lines = [ln for ln in scene.gancho.lineas if ln.texto.strip()]
-    y = h * 0.46 - len(lines) * 75 * u
+    y = h * 0.23 - len(lines) * 75 * u
     for ln in lines:
         spr = text_sprite(ln.texto, fp, int(135 * u), hex_rgb(ln.color), int(10 * u), int(1000 * u), None)
         img.alpha_composite(spr, (int((w - spr.width) / 2), int(y)))

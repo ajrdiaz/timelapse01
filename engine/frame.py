@@ -123,7 +123,7 @@ class FrameRenderer:
                 draw_hose(d, start, pp, L.ppm, ctx.t, 0 < tl < 1)
 
     # fotograma ------------------------------------------------------------------
-    def render(self, t: float, preview: Optional[bool] = None) -> Image.Image:
+    def render(self, t: float, preview: Optional[bool] = None, ui: bool = True) -> Image.Image:
         scene = self.scene
         L = self.L
         preview = self.preview if preview is None else preview
@@ -146,5 +146,6 @@ class FrameRenderer:
                 anchors.append((self.out_w / 2, self.out_h / 2))
         rx0, ry0 = world_to_screen(box, self.out_w, self.out_h, L.ix0, L.roof_top_y)
         rx1, ry1 = world_to_screen(box, self.out_w, self.out_h, L.ix1, L.slab_bot_y)
-        self.ui.draw(img, t, anchors, (rx0, ry0, rx1, ry1), preview=preview)
+        if ui:
+            self.ui.draw(img, t, anchors, (rx0, ry0, rx1, ry1), preview=preview)
         return img.convert("RGB")

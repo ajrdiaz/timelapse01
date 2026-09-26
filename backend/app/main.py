@@ -115,7 +115,13 @@ def new_project(body: NewProject):
 def get_project(pid: str):
     p = projects.get(pid)
     return {**p.summary(), "ideas": p.ideas(), "idea": p.idea(), "descripcion_md": p.descripcion(),
-            "scene": p.scene_dict(), "history_list": p.history_list()}
+            "scene": p.scene_dict(), "history_list": p.history_list(), "uploads": _uploads(p)}
+
+
+def _uploads(p) -> dict:
+    files = sorted(f.name for f in p.uploads.iterdir() if f.is_file()) if p.uploads.exists() else []
+    return {"fonts": [f for f in files if Path(f).suffix.lower() in FONT_EXT],
+            "music": [f for f in files if Path(f).suffix.lower() in MUSIC_EXT]}
 
 
 @app.delete("/api/projects/{pid}")

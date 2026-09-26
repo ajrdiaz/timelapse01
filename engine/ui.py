@@ -231,6 +231,32 @@ class UI:
             if frac > 0:
                 d.rounded_rectangle((x0, by, x0 + max(bh, int(bw * frac)), by + bh), radius=bh // 2, fill=hex_rgb(c.color_barra) + (255,))
 
+    def layout_callouts(self, sprites, anchors, room_screen):
+        """Coloca las etiquetas encima o debajo del recinto evitando solapes (independiente de t,
+        para que no salten al aparecer nuevas)."""
+        rx0, ry0, rx1, ry1 = room_screen
+        placed: list[tuple[float, float, float, float]] = []
+        out = []
+        top_lim, bot_lim = self.S(560), self.h - self.S(420)
+        for i, (spr, (ax, ay)) in enumerate(zip(sprites, anchors)):
+            lx = max(spr.width / 2 + self.S(30), min(self.w - self.S(150) - spr.width / 2, ax))
+            rows_above = [ry0 - self.S(70) - k * self.S(95) for k in range(4)]
+            rows_below = [ry1 + self.S(80) + k * self.S(95) for k in range(4)]
+            rows = rows_above + rows_below if i % 2 == 0 else rows_below + rows_above
+            best = None
+            for ly in rows:
+                ly = max(top_lim, min(bot_lim, ly))
+                r = (lx - spr.width / 2 - 6, ly - spr.height / 2 - 6, lx + spr.width / 2 + 6, ly + spr.height / 2 + 6)
+                if not any(r[0] < q[2] and q[0] < r[2] and r[1] < q[3] and q[1] < r[3] for q in placed):
+                    best = (lx, ly, r)
+                    break
+            if best is None:
+                ly = max(top_lim, min(bot_lim, rows[0]))
+                best = (lx, ly, (lx - spr.width / 2, ly - spr.height / 2, lx + spr.width / 2, ly + spr.height / 2))
+            placed.append(best[2])
+            out.append((best[0], best[1]))
+        return out
+
     def callouts(self, img, t: float, anchors: list[tuple[float, float]], room_screen):
         s = self.s
         rev = s.first_stage("revelacion")
@@ -238,17 +264,13 @@ class UI:
             return
         acc = hex_rgb(s.revelacion.color_acento)
         d = ImageDraw.Draw(img)
-        rx0, ry0, rx1, ry1 = room_screen
-        for i, (c, (ax, ay)) in enumerate(zip(s.revelacion.callouts, anchors)):
-            t0 = rev.inicio_seg + c.aparicion_seg
-            age = t - t0
+        cs = s.revelacion.callouts[: len(anchors)]
+        sprites = [self.sprite(c.texto, s.tipografia.tamanos.callout, (255, 255, 255), box=acc, max_w=520) for c in cs]
+        pos = self.layout_callouts(sprites, anchors, room_screen)
+        for c, spr, (ax, ay), (lx, ly) in zip(cs, sprites, anchors, pos):
+            age = t - (rev.inicio_seg + c.aparicion_seg)
             if age < 0:
                 continue
-            spr = self.sprite(c.texto, s.tipografia.tamanos.callout, (255, 255, 255), box=acc, max_w=520)
-            above = i % 2 == 0
-            ly = (ry0 - self.S(70) - (i // 2 % 2) * self.S(95)) if above else (ry1 + self.S(80) + (i // 2 % 2) * self.S(95))
-            ly = max(self.S(560), min(self.h - self.S(420), ly))
-            lx = max(spr.width / 2 + self.S(30), min(self.w - self.S(150) - spr.width / 2, ax))
             k = min(1.0, age / 0.25)
             if k > 0.2:
                 ex = lx + (ax - lx) * k

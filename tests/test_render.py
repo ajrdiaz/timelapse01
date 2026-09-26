@@ -24,6 +24,12 @@ def test_audio_loudness():
     assert abs(x).max() <= 1.0
 
 
+@pytest.mark.parametrize("dur", [15.0, 16.353, 72.353])
+def test_audio_length_non_integer(dur):
+    s = short_scene(dur)
+    assert build_audio(s).shape[0] == int(round(dur * SR))
+
+
 @needs_ffmpeg
 def test_smoke_render_3s(tmp_path):
     # humo: 3 s a 360×640 (el esquema exige ≥15 s, así que se renderiza una escena de 15 s

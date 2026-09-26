@@ -100,6 +100,8 @@ Tarea: modificar un JSON de escena existente siguiendo una instrucción del usua
 completa modificada (no solo los cambios) manteniendo todo lo demás igual y respetando las mismas reglas
 de coherencia: etapas encadenadas sin huecos/solapes que terminan en general.duracion_seg, días que no
 retroceden, callouts con objetos válidos del interior, longitudes máximas.
+Mantén general.duracion_seg igual salvo que la instrucción pida cambiar la duración: si alargas una etapa,
+acorta proporcionalmente las demás para que el total no cambie.
 """
 
 POST_SYSTEM = """Eres community manager experto en TikTok. Escribe el texto de publicación para un video
