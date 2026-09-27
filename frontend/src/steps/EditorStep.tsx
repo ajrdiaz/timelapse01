@@ -56,6 +56,7 @@ export default function EditorStep({ project, schema, catalog, onSaved, onRender
   const [guides, setGuides] = useState(true);
   const [err, setErr] = useState<unknown>(null);
   const [uploads, setUploads] = useState<{ fonts: string[]; music: string[] }>({ fonts: [], music: [] });
+  const [brandLocked, setBrandLocked] = useState<string[]>([]);
   const [history, setHistory] = useState(project.history_list?.length ?? 0);
   const [draftJob, setDraftJob] = useState<string | null>(null);
   const [draftUrl, setDraftUrl] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export default function EditorStep({ project, schema, catalog, onSaved, onRender
 
   useEffect(() => {
     api.get<any>(`/api/projects/${project.id}`).then((p) => setUploads(p.uploads ?? { fonts: [], music: [] }));
+    api.get<{ campos: string[] }>("/api/brand").then((b) => setBrandLocked(b.campos)).catch(() => {});
   }, [project.id]);
 
   // validación en vivo
@@ -180,6 +182,7 @@ export default function EditorStep({ project, schema, catalog, onSaved, onRender
     scene,
     errorsByPath: byPath,
     uploads,
+    brandLocked,
     onUpload: async (file: File) => {
       try {
         const r = await api.upload<{ filename: string; kind: string }>(`/api/projects/${project.id}/upload`, file);

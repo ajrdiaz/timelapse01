@@ -1,0 +1,90 @@
+{
+  "general": {
+    "fps": 30,
+    "resolucion": "1080x1920",
+    "estilo_visual": "corte_lateral"
+  },
+  "gancho": {
+    "zoom_out": true,
+    "zoom_intensidad": 1.35,
+    "colores_lineas": ["#FFFFFF", "#FFD400", "#FFFFFF"]
+  },
+  "contador": {
+    "mostrar": true,
+    "barra": true,
+    "color_barra": "#FFD400"
+  },
+  "escenario": {
+    "colores_suelo": ["#7A5234", "#6A4529", "#58391F"],
+    "densidad_piedras": 0.5,
+    "fondo": {
+      "cerca": true,
+      "arbol": true,
+      "casa_vecino": true
+    },
+    "dia_noche": {
+      "activo": true,
+      "intensidad": 0.65
+    },
+    "nubes": true,
+    "vineta": 0.35
+  },
+  "personajes": {
+    "color_chaleco": "#FF7A00",
+    "color_casco": "#FFD400",
+    "color_pantalon": "#2C3E66",
+    "excavadora": {
+      "activa": true,
+      "color": "#F2B705",
+      "entrada_salida": true
+    },
+    "ocultar_obreros_noche": true
+  },
+  "revelacion": {
+    "zoom_camara": 1.45
+  },
+  "cta": {
+    "final": {
+      "texto": "SÍGUEME PARA MÁS VIDEOS",
+      "color_fondo": "#FF2D55",
+      "color_texto": "#FFFFFF",
+      "posicion": "arriba",
+      "animacion": "pop"
+    },
+    "intermedio": {
+      "color_fondo": "#FFFFFF",
+      "color_texto": "#111111"
+    }
+  },
+  "tipografia": {
+    "fuente": "Anton",
+    "tamanos": {
+      "titulo": 92,
+      "subtitulo": 52,
+      "contador": 78,
+      "callout": 46
+    },
+    "contorno": 7,
+    "margen_superior": 150,
+    "guia_zonas_seguras": true
+  },
+  "audio": {
+    "musica": true,
+    "bpm": 112,
+    "estilo_obra": "yunque_marimba",
+    "estilo_drop": "electronico",
+    "volumen_musica": 0.8,
+    "volumen_sfx": 0.9,
+    "drop_sincronizado": true,
+    "lufs_objetivo": -14.0
+  },
+  "exportacion": {
+    "crf": 20,
+    "preset": "medium",
+    "max_mb": 50.0,
+    "portada": {
+      "generar": true
+    },
+    "texto_publicacion": true
+  }
+}

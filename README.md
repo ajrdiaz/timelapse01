@@ -18,6 +18,28 @@ Generador local de videos verticales (9:16) de **timelapse de construcción anim
 - **El motor es determinista y guiado por datos**: mismo JSON + misma `seed` ⇒ mismo video (texturas, audio y animaciones salen de la semilla).
 - Toda salida de Claude se valida con Pydantic. Si falla, se reintenta **una vez** pasándole a Claude los errores; si vuelve a fallar, el error se muestra en la interfaz.
 
+## Estilo del canal (`brand.json`)
+
+Todos los videos comparten el mismo estilo; solo cambia el contenido. `brand.json` es una escena parcial
+(misma forma que el esquema) con el estilo fijo del canal: tipografía y tamaños, colores del gancho, del
+contador, del CTA, de los obreros, la excavadora y la tierra, cámara, viñeta, día/noche, música (BPM, estilo
+de obra y drop, volúmenes, LUFS), resolución, fps y calidad de exportación.
+
+- Esos valores se aplican **siempre**: después de cada generación o edición de Claude, al guardar, en la
+  vista previa y en el render (también a proyectos creados antes). En el editor aparecen bloqueados con 🔒.
+- `gancho.colores_lineas` fija el color de cada línea del gancho por posición.
+- Lo que varía en cada video es el contenido: proyecto, etapas y ritmo, días, textos y humor, interior
+  revelado (con sus colores de acento y LEDs), callouts, texto de cierre y CTA intermedio. El texto del
+  CTA final también es fijo («SÍGUEME PARA MÁS VIDEOS»).
+- **Música**: mismo tempo, instrumentos y drop en todos los videos (fijados por la marca), pero cada video
+  suena distinto. La semilla (`general.seed`) elige el arreglo (arpegio de marimba, motivo, bajo, golpes de
+  yunque, lead del drop) y `audio.progresion` los acordes (9 progresiones menores). Al generar un guion se
+  asignan al azar, evitando las progresiones de los 3 videos anteriores. Mismo JSON ⇒ misma música; para
+  probar otra, cambia la semilla en el editor.
+- Para cambiar el estilo del canal, edita `brand.json` (se recarga solo). Para liberar un campo, quítalo
+  del archivo. Si el archivo no es válido, el backend no arranca y dice por qué.
+- Al proponer ideas, Claude recibe las ideas ya usadas en proyectos anteriores para no repetirlas.
+
 ## Requisitos
 
 - Python 3.11+
@@ -67,6 +89,7 @@ make dev              # o ./run.sh
 | `TF_PROJECTS_DIR` | `./projects` | Dónde se guardan los proyectos |
 | `TF_ALLOW_API_KEY` | `0` | Con `0` se fuerza la sesión de Claude Code aunque haya `ANTHROPIC_API_KEY` en el entorno |
 | `TF_LLM_TIMEOUT` | `300` | Segundos máximos por llamada a Claude |
+| `TF_BRAND_FILE` | `./brand.json` | Plantilla con el estilo fijo del canal |
 
 ## Línea de comandos
 
@@ -85,6 +108,7 @@ Referencia de rendimiento medida en 4 núcleos: 1860 fotogramas 1080×1920 en ~1
 ```
 engine/                 motor determinista guiado por JSON
   schema.py             esquema Pydantic (11 secciones), validación de coherencia, reescalado
+  brand.py              aplica brand.json (estilo fijo del canal) a cualquier escena
   catalog.py            tipos de etapa, poses, máquinas, interiores (se pasa a los prompts)
   defaults.py           etapas por defecto (video de referencia)
   world.py              geometría metros→px (escala coherente con la altura de los obreros), utilidades
@@ -127,6 +151,7 @@ Estilo visual: `corte_lateral` (el campo `estilo_visual` queda listo para estilo
 |---|---|---|
 | GET | `/api/health` | Estado de ffmpeg y Claude Code |
 | GET | `/api/schema`, `/api/catalog`, `/api/defaults` | Esquema JSON, catálogo, escena por defecto |
+| GET | `/api/brand` | Estilo fijo del canal y campos bloqueados |
 | POST | `/api/ideas` | `{tema, duracion_seg, tono, idioma}` → 5 ideas |
 | POST | `/api/scene` | `{project_id, idea, duracion_seg}` → `descripcion_md` + `scene` |
 | POST | `/api/scene/edit` | `{project_id, instruccion}` → escena modificada |
@@ -141,5 +166,9 @@ Estilo visual: `corte_lateral` (el campo `estilo_visual` queda listo para estilo
 
 - La guía de zonas seguras (lo que tapa la interfaz de TikTok a la derecha y abajo) solo aparece en la vista previa, nunca en el render.
 - «Tamaño máximo» limita el bitrate (`-maxrate`) según la duración; si aun así se pasa, se reencoda con bitrate fijo.
-- El texto de publicación incluye 5–8 hashtags y la recomendación de marcar la etiqueta de «contenido generado por IA».
+- El texto para TikTok (descripción corta + 5 hashtags, el máximo que permite TikTok) se genera junto con el guion, en la misma llamada a
+  Claude, y aparece en los pasos 2 y 4 con botones para copiar la descripción, los hashtags o todo junto.
+  `output/publicacion.txt` contiene exactamente el texto para pegar. El render no lo sobrescribe; usa
+  «Regenerar» si cambiaste el contenido. La recomendación de marcar la etiqueta de «contenido generado por IA»
+  se muestra aparte.
 - Las texturas se cachean en `.cache/assets`; bórrala con `make clean` si cambias el motor.

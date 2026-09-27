@@ -12,6 +12,7 @@ from typing import Optional
 import numpy as np
 from scipy import signal
 
+from engine.catalog import PROGRESSIONS
 from engine.stages import make_stage
 from engine.ui import callout_times, text_timeline
 
@@ -20,11 +21,8 @@ SR = 48000
 CHORDS = {
     "Am": (57, "m"), "F": (53, "M"), "C": (48, "M"), "G": (55, "M"),
     "Em": (52, "m"), "D": (50, "M"), "Dm": (50, "m"), "Bb": (46, "M"),
-}
-PROGRESSIONS = {
-    "A menor: Am-F-C-G": ["Am", "F", "C", "G"],
-    "E menor: Em-C-G-D": ["Em", "C", "G", "D"],
-    "D menor: Dm-Bb-F-C": ["Dm", "Bb", "F", "C"],
+    "Bm": (47, "m"), "A": (57, "M"), "Cm": (48, "m"), "Ab": (56, "M"),
+    "Eb": (51, "M"), "Gm": (55, "m"), "F#m": (54, "m"), "E": (52, "M"),
 }
 
 
@@ -35,6 +33,11 @@ def mtof(n: float) -> float:
 def chord_notes(name: str) -> list[int]:
     root, q = CHORDS[name]
     return [root, root + (3 if q == "m" else 4), root + 7]
+
+
+def degree(notes: list[int], i: int) -> int:
+    """Nota i del acorde contando hacia arriba: 0-2 = fundamental, tercera, quinta; 3 = fundamental +8va…"""
+    return notes[i % 3] + 12 * (i // 3)
 
 
 # --- osciladores / utilidades ------------------------------------------------------
@@ -183,9 +186,45 @@ class Kit:
 
 
 # --- música -------------------------------------------------------------------------
+# Patrones escogidos a mano (índices de grado de acorde, ver `degree`). La semilla elige entre ellos,
+# así cada video tiene su propio arreglo con los mismos instrumentos, tempo y estilo.
+ARPEGGIOS = [
+    [0, 2, 1, 2, 0, 2, 1, 3], [0, 1, 2, 3, 2, 1, 0, 1], [0, 2, 3, 2, 1, 2, 3, 2], [2, 1, 0, 1, 2, 3, 2, 1],
+    [0, 0, 2, 1, 3, 2, 1, 2], [0, 2, 1, 3, 0, 2, 1, 2], [1, 0, 2, 0, 3, 0, 2, 0], [0, 3, 2, 1, 0, 3, 2, 3],
+]
+ANVIL_BEATS = [(1, 3), (3,), (1, 3, 3.5), (1, 2.5, 3)]
+LOW_MARIMBA = [(0.0,), (0.0, 2.0), (0.0, 1.5), (0.0, 2.5)]
+DROP_BASS = [(0.5,), (0.0, 0.5), (0.5, 0.75), (0.0, 0.75)]
+DROP_LEADS = {False: [[2, 1, 0, 1], [0, 1, 2, 1], [0, 2, 1, 2], [2, 0, 1, 0], [0, 1, 2, 3], [3, 2, 1, 2]],
+              True: [[0, 1, 2, 1], [0, 2, 1, 2], [2, 1, 0, 1], [1, 2, 0, 2], [0, 2, 0, 1]]}  # chiptune ya suena +8va
+
+
+class Arrangement:
+    """Variaciones de la música que dependen solo de la semilla (mismo JSON ⇒ misma música)."""
+
+    def __init__(self, seed: int):
+        rng = np.random.default_rng(seed + 7)
+        pick = lambda seq: seq[int(rng.integers(len(seq)))]  # noqa: E731
+        self.arp = pick(ARPEGGIOS)
+        self.anvil = pick(ANVIL_BEATS)
+        self.low = pick(LOW_MARIMBA)
+        # motivo: paseo aleatorio por los grados 0–4 (se mueve por pasos, así suena melódico)
+        m = [int(rng.integers(0, 3))]
+        for _ in range(7):
+            m.append(int(np.clip(m[-1] + rng.choice([-1, 1, 1, 2]), 0, 4)))
+        self.motif = m
+        self.motif_beat = float(pick([1.5, 2.5, 3.0]))
+        self.motif_every_bar = bool(rng.random() < 0.4)
+        self.motif_pair = bool(rng.random() < 0.5)  # dos notas seguidas en vez de una
+        self.drop_bass = pick(DROP_BASS)
+        self.lead = {chip: pick(opts) for chip, opts in DROP_LEADS.items()}
+        self.lead_rest = bool(rng.random() < 0.5)  # respiro del lead en el último tiempo de cada 2 compases
+
+
 def music_track(scene, dur: float) -> np.ndarray:
     a = scene.audio
     kit = Kit(scene.general.seed + 101)
+    arr = Arrangement(scene.general.seed)
     buf = np.zeros((int(dur * SR), 2), np.float32)
     beat = 60.0 / a.bpm
     bar = beat * 4
@@ -198,9 +237,6 @@ def music_track(scene, dur: float) -> np.ndarray:
         drop = math.ceil((build_start) / bar) * bar
     anchor = drop  # la rejilla rítmica se alinea para que el drop caiga en un tiempo fuerte
     first = -math.ceil(anchor / beat)
-    rng = np.random.default_rng(scene.general.seed + 7)
-    patt = [0, 2, 1, 2, 0, 2, 1, 3]  # arpegio de marimba (índices de acorde)
-    motif = [0, 2, 3, 2, 1, 2, 3, 4]
     k = first
     while True:
         tb = anchor + k * beat
@@ -211,19 +247,24 @@ def music_track(scene, dur: float) -> np.ndarray:
         notes = chord_notes(prog[bar_i])
         if tb >= -beat:
             if tb < build_start:  # sección de obra: yunque + marimba
+                bar_t = tb - bi * beat
                 add(buf, kit.kick(False), tb, 0.55)
-                if bi in (1, 3):
-                    add(buf, kit.anvil(), tb, 0.45, 0.2)
+                for ab in arr.anvil:
+                    if int(ab) == bi:
+                        add(buf, kit.anvil(), bar_t + ab * beat, 0.45 if ab == int(ab) else 0.25, 0.2)
                 for h in range(2):
-                    idx = patt[(bi * 2 + h) % 8]
-                    oct_ = 12 if idx == 3 else 0
-                    add(buf, kit.marimba(notes[idx % 3] + 12 + oct_), tb + h * beat / 2, 0.5, -0.25 + 0.5 * h)
+                    idx = arr.arp[(bi * 2 + h) % 8]
+                    add(buf, kit.marimba(degree(notes, idx) + 12), tb + h * beat / 2, 0.5, -0.25 + 0.5 * h)
                     add(buf, kit.shaker(), tb + h * beat / 2 + beat / 4, 0.8, 0.4)
                 if bi == 0:
-                    add(buf, kit.marimba(notes[0] - 12, 1.0), tb, 0.7)
-                if bi == 2 and (k // 4) % 2 == 1:
-                    m = motif[(k // 4) % 8]
-                    add(buf, kit.marimba(notes[m % 3] + 24), tb + beat * 0.5, 0.25, 0.3)
+                    for off in arr.low:
+                        add(buf, kit.marimba(notes[0] - 12, 1.0), tb + off * beat, 0.7 if off == 0 else 0.45)
+                bar_n = k // 4
+                if bi == int(arr.motif_beat) and (arr.motif_every_bar or bar_n % 2 == 1):
+                    mt = bar_t + arr.motif_beat * beat
+                    for j in range(2 if arr.motif_pair else 1):
+                        m = arr.motif[(bar_n * 2 + j) % 8]
+                        add(buf, kit.marimba(notes[m % 3] + 24), mt + j * beat / 2, 0.25, 0.3)
             elif tb < drop:  # subida: solo marimba filtrada y redoble
                 prog_k = (tb - build_start) / max(0.1, drop - build_start)
                 add(buf, kit.marimba(notes[0] + 12), tb, 0.3)
@@ -237,13 +278,17 @@ def music_track(scene, dur: float) -> np.ndarray:
                     add(buf, kit.snare(clap=not chip), tb, 0.7)
                 add(buf, kit.hat(False), tb + beat / 2, 0.8, 0.3)
                 add(buf, kit.hat(bi == 3), tb + beat * 0.75, 0.4, -0.3)
-                add(buf, kit.bass(notes[0], beat * 0.45, chip), tb + beat / 2, 0.8)
+                for off in arr.drop_bass:
+                    add(buf, kit.bass(notes[0], beat * (0.2 if len(arr.drop_bass) > 1 else 0.45), chip), tb + off * beat, 0.8)
                 if bi == 0:
                     add(buf, kit.stab(notes, bar * 0.9, chip), tb, 0.6)
-                arp = [0, 1, 2, 1] if chip else [2, 1, 0, 1]
+                if arr.lead_rest and bi == 3 and (k // 4) % 2 == 1:
+                    k += 1
+                    continue
+                lead = arr.lead[chip]
                 steps = 4 if chip else 2
                 for s_ in range(steps):
-                    n = notes[arp[(bi * steps + s_) % 4]] + (12 if chip else 0)
+                    n = degree(notes, lead[(bi * steps + s_) % 4]) + (12 if chip else 0)
                     add(buf, kit.lead(n, beat / steps * 0.9, chip), tb + s_ * beat / steps, 0.5, 0.15)
         k += 1
     # riser de noise antes del drop
@@ -263,7 +308,6 @@ def music_track(scene, dur: float) -> np.ndarray:
     # fundido final
     fade = int(min(1.5, dur * 0.1) * SR)
     buf[-fade:] *= np.linspace(1, 0, fade, dtype=np.float32)[:, None]
-    _ = rng
     return buf
 
 

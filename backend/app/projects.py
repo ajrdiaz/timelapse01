@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from backend.app import config
+from engine.brand import apply_brand
 from engine.schema import Scene
 
 _lock = threading.RLock()
@@ -28,6 +29,11 @@ def _write(p: Path, data) -> None:
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(p)
+
+
+def caption(post: dict) -> str:
+    """Descripción + hashtags tal como se pegan en TikTok."""
+    return f"{post['descripcion'].strip()}\n\n{' '.join(post['hashtags'])}"
 
 
 class Project:
@@ -78,8 +84,18 @@ class Project:
         self.dir.mkdir(parents=True, exist_ok=True)
         (self.dir / "descripcion.md").write_text(md, encoding="utf-8")
 
+    def publicacion(self) -> Optional[dict]:
+        return _read(self.output / "publicacion.json")
+
+    def save_publicacion(self, data: dict) -> None:
+        """Guarda el texto de publicación; publicacion.txt queda listo para copiar y pegar en TikTok."""
+        _write(self.output / "publicacion.json", data)
+        (self.output / "publicacion.txt").write_text(caption(data) + "\n", encoding="utf-8")
+
     def scene_dict(self) -> Optional[dict]:
-        return _read(self.scene_path)
+        """Escena guardada con el estilo de marca aplicado (también a proyectos anteriores a la marca)."""
+        d = _read(self.scene_path)
+        return apply_brand(d) if d else d
 
     def scene(self) -> Optional[Scene]:
         d = self.scene_dict()
@@ -88,11 +104,15 @@ class Project:
     def history(self) -> list[Path]:
         return sorted(self.history_dir.glob("scene_*.json"))
 
-    def save_scene(self, scene: Scene, note: str = "") -> int:
-        """Guarda la escena validada y añade una versión al historial."""
+    def save_scene(self, scene: Scene, note: str = "", reset_history: bool = False) -> int:
+        """Guarda la escena validada y añade una versión al historial. Con `reset_history` (guion nuevo
+        desde cero) se borran las versiones anteriores y la escena queda como versión 1."""
         with _lock:
-            data = scene.model_dump()
-            if self.scene_dict() == data:
+            data = Scene.model_validate(apply_brand(scene.model_dump())).model_dump()
+            if reset_history:
+                for old in self.history():
+                    old.unlink(missing_ok=True)
+            elif self.scene_dict() == data:
                 return len(self.history())
             hist = self.history()
             n = int(hist[-1].stem.split("_")[1]) + 1 if hist else 1
@@ -112,7 +132,7 @@ class Project:
             hist[-1].unlink()
             prev = _read(hist[-2])["scene"]
             _write(self.scene_path, prev)
-            return prev
+            return apply_brand(prev)
 
     def history_list(self) -> list[dict]:
         out = []
@@ -147,6 +167,18 @@ def get(pid: str) -> Project:
     if not p.exists():
         raise KeyError(pid)
     return p
+
+
+def used_ideas(limit: int = 30) -> list[dict]:
+    """Ideas ya elegidas en proyectos anteriores (las más recientes primero), para no repetir contenido."""
+    out = []
+    for m in list_all():
+        idea = Project(m["id"]).idea()
+        if idea:
+            out.append(idea)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def list_all() -> list[dict]:

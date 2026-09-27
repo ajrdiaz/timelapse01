@@ -79,6 +79,13 @@ export interface Job {
   error: string;
 }
 
+export interface Publicacion {
+  descripcion: string;
+  hashtags: string[];
+  etiqueta_ia: boolean;
+  nota_etiqueta_ia: string;
+}
+
 export interface Project {
   id: string;
   titulo: string;
@@ -94,6 +101,7 @@ export interface Project {
   history_list?: { version: number; note: string; time: number }[];
   duracion_seg?: number;
   idioma?: string;
+  publicacion?: Publicacion | null;
 }
 
 /** Recalcula inicio_seg encadenando las duraciones (igual que engine.schema.chain_starts). */

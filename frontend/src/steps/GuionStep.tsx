@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type Project, type Scene } from "../api";
+import { api, type Project, type Publicacion, type Scene } from "../api";
 import ErrorBox from "../components/ErrorBox";
+import PublicacionPanel from "../components/PublicacionPanel";
 import Markdown from "../components/Markdown";
-import Spinner from "../components/Spinner";
+import Spinner, { useElapsed } from "../components/Spinner";
 
 export default function GuionStep({ project, onUpdate, onNext }: {
   project: Project;
@@ -16,17 +17,27 @@ export default function GuionStep({ project, onUpdate, onNext }: {
   const [instr, setInstr] = useState("");
   const [dur, setDur] = useState<number>(project.scene?.general?.duracion_seg ?? project.duracion_seg ?? 62);
   const started = useRef(false);
+  const banner = useRef<HTMLDivElement>(null);
+  const elapsed = useElapsed(!!busy);
+
+  // el botón puede quedar lejos del aviso (p. ej. en pantallas estrechas): llevar el aviso a la vista
+  useEffect(() => {
+    if (busy) banner.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [busy]);
 
   const generate = async () => {
     if (!project.idea) return;
-    setBusy("Claude está escribiendo el guion y el JSON de escena… (puede tardar 1–2 min)");
+    if (project.scene && !window.confirm(
+      "Esto reemplaza el guion actual, la escena (con tus cambios del editor) y el texto para TikTok, " +
+      "y borra el historial de «Deshacer». No se puede recuperar. ¿Continuar?")) return;
+    setBusy("Claude está escribiendo el guion, la escena y el texto para TikTok… (suele tardar 1–2 min)");
     setError(null);
     try {
-      const r = await api.post<{ descripcion_md: string; scene: Scene }>("/api/scene", {
+      const r = await api.post<{ descripcion_md: string; scene: Scene; publicacion: Publicacion | null; history: Project["history_list"] }>("/api/scene", {
         project_id: project.id, idea: project.idea, duracion_seg: dur, idioma: project.idioma ?? "es",
       });
       setMd(r.descripcion_md);
-      onUpdate({ descripcion_md: r.descripcion_md, scene: r.scene, has_scene: true });
+      onUpdate({ descripcion_md: r.descripcion_md, scene: r.scene, has_scene: true, publicacion: r.publicacion, history_list: r.history });
     } catch (e) {
       setError(e);
     } finally {
@@ -47,12 +58,12 @@ export default function GuionStep({ project, onUpdate, onNext }: {
     setBusy("Claude está aplicando tus instrucciones…");
     setError(null);
     try {
-      const r = await api.post<{ scene: Scene; cambios: string }>("/api/scene/edit", { project_id: project.id, instruccion: instr });
+      const r = await api.post<{ scene: Scene; cambios: string; history: Project["history_list"] }>("/api/scene/edit", { project_id: project.id, instruccion: instr });
       const note = `\n\n---\n**Cambios (${new Date().toLocaleTimeString()}):** ${instr}\n\n${r.cambios}\n`;
       const newMd = md + note;
       setMd(newMd);
       await api.put(`/api/projects/${project.id}/descripcion`, { descripcion_md: newMd });
-      onUpdate({ scene: r.scene, descripcion_md: newMd });
+      onUpdate({ scene: r.scene, descripcion_md: newMd, history_list: r.history });
       setInstr("");
     } catch (e) {
       setError(e);
@@ -78,12 +89,20 @@ export default function GuionStep({ project, onUpdate, onNext }: {
             {editing && <button className="rounded-md bg-yellow-400 px-3 py-1 text-sm font-bold text-zinc-950" onClick={saveMd}>Guardar texto</button>}
           </div>
         </div>
-        {busy && <Spinner label={busy} />}
+        {busy && (
+          <div ref={banner} className="mb-3 rounded-lg border border-yellow-400/40 bg-yellow-400/10 p-3">
+            <Spinner label={`${busy} · ${elapsed}`} />
+          </div>
+        )}
         <ErrorBox error={error} onClose={() => setError(null)} />
         {editing ? (
           <textarea className="h-[65vh] w-full rounded-md border border-zinc-700 bg-zinc-950 p-3 font-mono text-sm" value={md} onChange={(e) => setMd(e.target.value)} />
         ) : (
-          md ? <Markdown text={md} /> : !busy && <p className="text-sm text-zinc-400">Aún no hay guion.</p>
+          md ? (
+            <div className={busy ? "pointer-events-none opacity-40 transition-opacity" : "transition-opacity"}>
+              <Markdown text={md} />
+            </div>
+          ) : !busy && <p className="text-sm text-zinc-400">Aún no hay guion.</p>
         )}
       </div>
       <aside className="space-y-4">
@@ -97,8 +116,10 @@ export default function GuionStep({ project, onUpdate, onNext }: {
             <input type="range" min={15} max={180} value={dur} onChange={(e) => setDur(Number(e.target.value))} className="w-full" />
           </label>
           <button disabled={!!busy} onClick={generate}
-            className="mt-2 w-full rounded-md bg-zinc-800 py-1.5 hover:bg-zinc-700 disabled:opacity-50">
-            {s ? "Generar guion desde cero" : "Generar guion"}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-zinc-800 py-1.5 hover:bg-zinc-700 disabled:opacity-50">
+            {busy?.startsWith("Claude está escribiendo") ? (
+              <Spinner label={`Generando guion… ${elapsed}`} />
+            ) : s ? "Generar guion desde cero" : "Generar guion"}
           </button>
         </div>
         {s && (
@@ -107,8 +128,8 @@ export default function GuionStep({ project, onUpdate, onNext }: {
             <textarea className="h-24 w-full rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm" value={instr}
               placeholder="«haz la excavación más larga», «cambia la revelación a un cine»…" onChange={(e) => setInstr(e.target.value)} />
             <button disabled={!!busy || !instr.trim()} onClick={regenerate}
-              className="mt-2 w-full rounded-md bg-zinc-800 py-1.5 text-sm hover:bg-zinc-700 disabled:opacity-50">
-              Aplicar con Claude
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-zinc-800 py-1.5 text-sm hover:bg-zinc-700 disabled:opacity-50">
+              {busy?.startsWith("Claude está aplicando") ? <Spinner label={`Aplicando cambios… ${elapsed}`} /> : "Aplicar con Claude"}
             </button>
             <div className="mt-4 text-xs text-zinc-400">
               {s.etapas.length} etapas · {s.general.duracion_seg} s · interior «{s.revelacion.tipo_interior}» · {s.revelacion.callouts.length} callouts
@@ -118,6 +139,7 @@ export default function GuionStep({ project, onUpdate, onNext }: {
             </button>
           </div>
         )}
+        {s && <PublicacionPanel projectId={project.id} post={project.publicacion} onChange={(publicacion) => onUpdate({ publicacion })} />}
       </aside>
     </div>
   );

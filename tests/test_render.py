@@ -48,3 +48,21 @@ def test_duration_matches(tmp_path):
     out = tmp_path / "d.mp4"
     render_video(s, str(out), size=(360, 640), fps=15, ss=1, workers=2, preset="ultrafast")
     assert probe_duration(str(out)) == pytest.approx(15.0, abs=0.05)
+
+
+def test_music_varies_by_seed_and_is_deterministic(example_dict):
+    import numpy as np
+
+    from engine.audio import music_track
+    from engine.schema import Scene
+
+    def track(seed, prog="A menor: Am-F-C-G"):
+        d = {**example_dict, "general": {**example_dict["general"], "seed": seed},
+             "audio": {**example_dict["audio"], "progresion": prog}}
+        s = Scene.model_validate(d)
+        return music_track(s, s.general.duracion_seg)
+
+    a = track(7)
+    assert np.array_equal(a, track(7))
+    assert not np.allclose(a, track(8))
+    assert not np.allclose(a, track(7, "F# menor: F#m-D-A-E"))

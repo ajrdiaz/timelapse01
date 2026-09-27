@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
-import { api, type Job, type Project } from "../api";
+import { useState } from "react";
+import { api, type Job, type Project, type Publicacion } from "../api";
 import ErrorBox from "../components/ErrorBox";
 import JobProgress, { useJob } from "../components/JobProgress";
+import PublicacionPanel from "../components/PublicacionPanel";
 
 export default function RenderStep({ project, onRefresh }: { project: Project; onRefresh: () => void }) {
   const [jobId, setJobId] = useState<string | null>(null);
   const [err, setErr] = useState<unknown>(null);
-  const [post, setPost] = useState<string | null>(null);
+  const [post, setPost] = useState<Publicacion | null>(project.publicacion ?? null);
   const [outputs, setOutputs] = useState<string[]>(project.outputs ?? []);
   const [v, setV] = useState(Date.now());
   const job = useJob(jobId, async (j: Job) => {
@@ -14,32 +15,16 @@ export default function RenderStep({ project, onRefresh }: { project: Project; o
       setV(Date.now());
       const p = await api.get<Project>(`/api/projects/${project.id}`);
       setOutputs(p.outputs);
+      setPost(p.publicacion ?? null);
       onRefresh();
     }
   });
-
-  useEffect(() => {
-    if (outputs.includes("publicacion.txt"))
-      fetch(`/api/projects/${project.id}/files/publicacion.txt?v=${v}`).then((r) => r.text()).then(setPost).catch(() => {});
-  }, [outputs, project.id, v]);
 
   const start = async () => {
     setErr(null);
     try {
       const j = await api.post<Job>("/api/render", { project_id: project.id, borrador: false });
       setJobId(j.id);
-    } catch (e) {
-      setErr(e);
-    }
-  };
-
-  const genPost = async () => {
-    setErr(null);
-    try {
-      await api.post(`/api/projects/${project.id}/post-text`);
-      const p = await api.get<Project>(`/api/projects/${project.id}`);
-      setOutputs(p.outputs);
-      setV(Date.now());
     } catch (e) {
       setErr(e);
     }
@@ -76,22 +61,12 @@ export default function RenderStep({ project, onRefresh }: { project: Project; o
             {job?.result?.mb && <div className="mt-2 text-xs text-zinc-500">{job.result.mb} MB · {job.result.frames} fotogramas · {job.result.seconds} s de render · {job.result.per_frame_core} s/fotograma/núcleo</div>}
           </div>
         )}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-          <div className="mb-2 flex items-center">
-            <h3 className="font-semibold">Texto de publicación</h3>
-            <button onClick={genPost} className="ml-auto rounded-md bg-zinc-800 px-3 py-1 text-sm hover:bg-zinc-700">
-              {post ? "Regenerar con Claude" : "Generar con Claude"}
-            </button>
-          </div>
-          {post ? (
-            <>
-              <pre className="whitespace-pre-wrap rounded-md bg-zinc-950 p-3 text-sm">{post}</pre>
-              <button onClick={() => navigator.clipboard.writeText(post)} className="mt-2 rounded-md bg-zinc-800 px-3 py-1 text-sm hover:bg-zinc-700">Copiar</button>
-            </>
-          ) : (
-            <p className="text-sm text-zinc-400">Se genera automáticamente al terminar el render (si está activado en Exportación).</p>
-          )}
-        </div>
+        <PublicacionPanel projectId={project.id} post={post}
+          onChange={(p) => {
+            setPost(p);
+            if (!outputs.includes("publicacion.txt")) setOutputs([...outputs, "publicacion.txt"]);
+            onRefresh();
+          }} />
       </div>
       <div className="flex flex-wrap items-start justify-center gap-4">
         {outputs.includes("video.mp4") && <video key={v} src={file("video.mp4")} controls className="w-full max-w-[340px] rounded-xl border border-zinc-800" />}

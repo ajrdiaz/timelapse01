@@ -9,7 +9,7 @@ from typing import Annotated, Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from engine.catalog import INTERIOR_TYPES, MACHINES, POSES, STAGE_TYPES
+from engine.catalog import INTERIOR_TYPES, MACHINES, POSES, PROGRESSIONS, STAGE_TYPES
 
 TOL = 0.05  # tolerancia en segundos para la coherencia temporal
 
@@ -21,6 +21,7 @@ StageType = Literal[tuple(STAGE_TYPES)]  # type: ignore[valid-type]
 Pose = Literal[tuple(POSES)]  # type: ignore[valid-type]
 Machine = Literal[tuple(MACHINES)]  # type: ignore[valid-type]
 InteriorType = Literal[tuple(INTERIOR_TYPES)]  # type: ignore[valid-type]
+Progression = Literal[tuple(PROGRESSIONS)]  # type: ignore[valid-type]
 
 
 def F(default: Any = ..., desc: str = "", **kw: Any) -> Any:
@@ -174,7 +175,7 @@ class Revelacion(_M):
 
 # 8. CTA ----------------------------------------------------------------------
 class CTAFinal(_M):
-    texto: str = F("SÍGUEME PARA LA PARTE 2", "Texto del CTA final.", max_length=32)
+    texto: str = F("SÍGUEME PARA MÁS VIDEOS", "Texto del CTA final.", max_length=32)
     color_fondo: Color = F("#FF2D55", "Color de fondo del CTA.")
     color_texto: Color = F("#FFFFFF", "Color del texto del CTA.")
     aparicion_seg: float = F(59.3, "Segundo (absoluto) en que aparece.", ge=0, le=180)
@@ -220,8 +221,9 @@ class Audio(_M):
     model_config = ConfigDict(extra="forbid", title="Audio")
     musica: bool = F(True, "Generar música.")
     bpm: int = F(112, "Tempo de la música.", ge=90, le=140)
-    progresion: Literal["A menor: Am-F-C-G", "E menor: Em-C-G-D", "D menor: Dm-Bb-F-C"] = F(
-        "A menor: Am-F-C-G", "Tonalidad / progresión de acordes."
+    progresion: Progression = F(
+        "A menor: Am-F-C-G",
+        "Tonalidad / progresión de acordes. Junto con la semilla, hace que cada video suene distinto.",
     )
     estilo_obra: Literal["yunque_marimba"] = F("yunque_marimba", "Estilo de la sección de obra.")
     estilo_drop: Literal["electronico", "chiptune"] = F("electronico", "Estilo del drop de la revelación.")

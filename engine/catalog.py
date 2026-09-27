@@ -45,6 +45,19 @@ INTERIOR_TYPES: dict[str, str] = {
     "oficina": "oficina: escritorio de madera, librero, lámpara, planta, pizarra",
 }
 
+# Progresiones de acordes de la música generada. Todas en tono menor para conservar el carácter del canal.
+PROGRESSIONS: dict[str, list[str]] = {
+    "A menor: Am-F-C-G": ["Am", "F", "C", "G"],
+    "E menor: Em-C-G-D": ["Em", "C", "G", "D"],
+    "D menor: Dm-Bb-F-C": ["Dm", "Bb", "F", "C"],
+    "A menor: Am-Dm-G-C": ["Am", "Dm", "G", "C"],
+    "B menor: Bm-G-D-A": ["Bm", "G", "D", "A"],
+    "C menor: Cm-Ab-Eb-Bb": ["Cm", "Ab", "Eb", "Bb"],
+    "G menor: Gm-Eb-Bb-F": ["Gm", "Eb", "Bb", "F"],
+    "F# menor: F#m-D-A-E": ["F#m", "D", "A", "E"],
+    "E menor: Em-G-D-C": ["Em", "G", "D", "C"],
+}
+
 VISUAL_STYLES = ["corte_lateral"]
 
 TONES = ["divertido", "serio", "misterioso"]

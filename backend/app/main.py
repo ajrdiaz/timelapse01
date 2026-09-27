@@ -7,6 +7,8 @@ import hashlib
 import io
 import json
 import logging
+import random
+import secrets
 import shutil
 import threading
 from collections import OrderedDict
@@ -24,12 +26,14 @@ from backend.app.jobs import JobManager
 from backend.app.llm import LLMError, claude_available, structured
 from backend.app.prompts import (EDIT_SYSTEM, IdeasResponse, PostText, SceneOnly, SceneResponse, edit_prompt,
                                  ideas_prompt, post_prompt, scene_prompt, system, POST_SYSTEM)
-from engine.catalog import INTERIOR_TYPES, MACHINES, POSES, STAGE_TYPES, TONES
+from engine.brand import apply_brand, brand_path, load_brand, locked_paths
+from engine.catalog import INTERIOR_TYPES, MACHINES, POSES, PROGRESSIONS, STAGE_TYPES, TONES
 from engine.interiors import INTERIORS
 from engine.schema import Scene, chain_starts, coherence_errors, rescale_times
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("tf.api")
+load_brand()  # un brand.json inválido debe fallar al arrancar, no a mitad de un render
 app = FastAPI(title="TimelapseForge")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -64,7 +68,7 @@ async def _key_err(_: Request, e: KeyError):
 
 
 def parse_scene(d: dict) -> Scene:
-    return Scene.model_validate(d)
+    return Scene.model_validate(apply_brand(d))
 
 
 # --- salud y catálogo -----------------------------------------------------------------
@@ -92,7 +96,13 @@ def schema():
 
 @app.get("/api/defaults")
 def defaults():
-    return Scene().model_dump()
+    return apply_brand(Scene().model_dump())
+
+
+@app.get("/api/brand")
+def brand():
+    """Estilo fijo del canal: valores de brand.json y rutas de campos bloqueados en el editor."""
+    return {"archivo": str(brand_path()), "valores": load_brand(), "campos": locked_paths()}
 
 
 # --- proyectos --------------------------------------------------------------------------
@@ -115,7 +125,8 @@ def new_project(body: NewProject):
 def get_project(pid: str):
     p = projects.get(pid)
     return {**p.summary(), "ideas": p.ideas(), "idea": p.idea(), "descripcion_md": p.descripcion(),
-            "scene": p.scene_dict(), "history_list": p.history_list(), "uploads": _uploads(p)}
+            "scene": p.scene_dict(), "history_list": p.history_list(), "uploads": _uploads(p),
+            "publicacion": p.publicacion()}
 
 
 def _uploads(p) -> dict:
@@ -167,7 +178,7 @@ def save_md(pid: str, body: MdBody):
 @app.post("/api/validate")
 def validate(body: SceneBody):
     try:
-        s = Scene.model_validate(body.scene)
+        s = parse_scene(body.scene)
         return {"ok": True, "errors": [], "scene": s.model_dump()}
     except ValidationError as e:
         return {"ok": False, "errors": validation_details(e)}
@@ -196,7 +207,8 @@ class IdeasBody(BaseModel):
 
 @app.post("/api/ideas")
 async def ideas(body: IdeasBody):
-    res = await structured(system("ideas"), ideas_prompt(body.tema, body.duracion_seg, body.tono, body.idioma), IdeasResponse)
+    res = await structured(system("ideas"), ideas_prompt(body.tema, body.duracion_seg, body.tono, body.idioma,
+                                                         projects.used_ideas()), IdeasResponse)
     p = projects.get(body.project_id) if body.project_id else projects.create(body.tema or "Nuevo video", body.tema)
     data = [i.model_dump() for i in res.ideas]
     p.save_ideas(data)
@@ -212,20 +224,39 @@ class SceneReq(BaseModel):
 
 
 def _normalize_llm_scene(d: dict) -> dict:
-    """Arregla la aritmética de tiempos (el LLM suele desviarse unas décimas) antes de validar."""
+    """Arregla la aritmética de tiempos (el LLM suele desviarse unas décimas) y aplica el estilo de marca
+    antes de validar."""
     if isinstance(d.get("scene"), dict):
-        d = {**d, "scene": rescale_times(d["scene"])}
+        d = {**d, "scene": apply_brand(rescale_times(d["scene"]))}
     return d
+
+
+def _music_for_new_video(recent: int = 3) -> tuple[int, str]:
+    """Semilla y progresión al azar para un video nuevo (la semilla fija el arreglo de la música). Se evitan
+    las progresiones de los últimos videos para que no suenen parecidos seguidos."""
+    seed = secrets.randbelow(2**31)
+    used = []
+    for m in projects.list_all():
+        d = projects.Project(m["id"]).scene_dict()
+        if d:
+            used.append(d.get("audio", {}).get("progresion"))
+        if len(used) >= recent:
+            break
+    options = [p for p in PROGRESSIONS if p not in used] or list(PROGRESSIONS)
+    return seed, random.Random(seed).choice(options)
 
 
 @app.post("/api/scene")
 async def make_scene(body: SceneReq):
     p = projects.get(body.project_id)
-    base = rescale_times(Scene().model_dump(), body.duracion_seg)
+    base = rescale_times(apply_brand(Scene().model_dump()), body.duracion_seg)
     base["general"]["idioma"] = body.idioma
+    seed, progresion = _music_for_new_video()
 
     def prep(d):
         d = _normalize_llm_scene(d)
+        d["scene"]["general"]["seed"] = seed
+        d["scene"]["audio"]["progresion"] = progresion
         d["scene"]["general"]["duracion_seg"] = body.duracion_seg
         d["scene"] = rescale_times(d["scene"], body.duracion_seg)
         return d
@@ -234,8 +265,17 @@ async def make_scene(body: SceneReq):
                            SceneResponse, prepare=prep)
     p.save_idea(body.idea)
     p.save_descripcion(res.descripcion_md)
-    p.save_scene(res.scene, "generada por Claude")
-    return {"descripcion_md": res.descripcion_md, "scene": res.scene.model_dump(), "history": p.history_list()}
+    p.save_scene(res.scene, "generada por Claude", reset_history=True)
+    post = res.publicacion.model_dump() if res.publicacion else None
+    if post:
+        p.save_publicacion(post)
+    else:  # Claude no lo incluyó: se pide aparte, sin hacer fallar el guion
+        try:
+            post = await generate_post(p)
+        except Exception as e:
+            log.warning("no se pudo generar el texto de publicación: %s", e)
+    return {"descripcion_md": res.descripcion_md, "scene": res.scene.model_dump(), "history": p.history_list(),
+            "publicacion": post}
 
 
 class EditReq(BaseModel):
@@ -259,23 +299,23 @@ async def generate_post(p: projects.Project) -> dict:
     s = p.scene()
     res = await structured(POST_SYSTEM, post_prompt(s, p.descripcion()), PostText)
     data = res.model_dump()
-    (p.output / "publicacion.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    txt = (f"{data['descripcion']}\n\n{' '.join(h if h.startswith('#') else '#' + h for h in data['hashtags'])}\n\n"
-           f"Etiqueta de contenido generado por IA: {'SÍ, márcala' if data['etiqueta_ia'] else 'opcional'} — "
-           f"{data['nota_etiqueta_ia']}\n")
-    (p.output / "publicacion.txt").write_text(txt, encoding="utf-8")
+    p.save_publicacion(data)
     return data
 
 
 @app.post("/api/projects/{pid}/post-text")
 async def post_text(pid: str):
     p = projects.get(pid)
-    p.output.mkdir(parents=True, exist_ok=True)
+    if p.scene() is None:
+        return err(409, "no_scene", "El proyecto aún no tiene escena.")
     return await generate_post(p)
 
 
 def _post_hook(job):
-    asyncio.run(generate_post(projects.get(job.project_id)))
+    """Tras el render: solo se escribe si aún no existe (no se pisa el texto que ya se copió)."""
+    p = projects.get(job.project_id)
+    if p.publicacion() is None:
+        asyncio.run(generate_post(p))
 
 
 jobs = JobManager(post_hook=_post_hook)

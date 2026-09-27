@@ -12,6 +12,26 @@ export interface FormCtx {
   errorsByPath: Record<string, string[]>;
   uploads: { fonts: string[]; music: string[] };
   onUpload: (file: File) => Promise<void>;
+  /** Rutas fijadas por la plantilla de marca (brand.json); admiten "*" como índice de lista. */
+  brandLocked: string[];
+}
+
+export function isBrandLocked(path: string, locked: string[]): boolean {
+  const parts = path.split(".");
+  return locked.some((l) => {
+    const lp = l.split(".");
+    return lp.length <= parts.length && lp.every((x, i) => x === "*" || x === parts[i]);
+  });
+}
+
+const BRAND_TIP = "Fijado por la plantilla de marca del canal (brand.json): es igual en todos los videos.";
+
+function BrandBadge() {
+  return (
+    <span title={BRAND_TIP} className="ml-1.5 rounded bg-zinc-800 px-1 text-[10px] font-normal text-zinc-400">
+      🔒 marca
+    </span>
+  );
 }
 
 const WORDS: Record<string, string> = {
@@ -72,14 +92,15 @@ function Tip({ text }: { text?: string }) {
   );
 }
 
-function Row({ label, tip, children, errs }: { label: string; tip?: string; children: ReactNode; errs?: string[] }) {
+function Row({ label, tip, children, errs, locked }: { label: string; tip?: string; children: ReactNode; errs?: string[]; locked?: boolean }) {
   return (
     <div className="py-1.5">
       <div className="mb-1 flex items-center text-xs font-medium text-zinc-400">
         {label}
         <Tip text={tip} />
+        {locked && <BrandBadge />}
       </div>
-      {children}
+      {locked ? <fieldset disabled className="opacity-50">{children}</fieldset> : children}
       {errs?.map((e, i) => (
         <div key={i} className="mt-0.5 text-xs text-red-400">
           {e}
@@ -293,6 +314,7 @@ export function FieldEditor({ schema, value, onChange, path, ctx, label, bare }:
   const tip = (schema as S).description ?? n.description;
   const errs = ctx.errorsByPath[path];
   const key = path.split(".").pop() ?? "";
+  const locked = isBrandLocked(path, ctx.brandLocked);
   let control: ReactNode;
 
   // widgets especiales
@@ -338,16 +360,23 @@ export function FieldEditor({ schema, value, onChange, path, ctx, label, bare }:
         <legend className="px-1 text-xs font-semibold text-zinc-300">
           {label ?? humanize(key)}
           <Tip text={tip} />
+          {locked && <BrandBadge />}
         </legend>
-        <ObjectFields n={n} value={value ?? {}} onChange={onChange} path={path} ctx={ctx} />
+        {locked ? (
+          <fieldset disabled className="opacity-50">
+            <ObjectFields n={n} value={value ?? {}} onChange={onChange} path={path} ctx={ctx} />
+          </fieldset>
+        ) : (
+          <ObjectFields n={n} value={value ?? {}} onChange={onChange} path={path} ctx={ctx} />
+        )}
       </fieldset>
     );
   } else {
     control = <input className={inputCls} value={JSON.stringify(value)} readOnly />;
   }
-  if (bare) return <>{control}</>;
+  if (bare) return locked ? <fieldset disabled className="opacity-50">{control}</fieldset> : <>{control}</>;
   return (
-    <Row label={label ?? humanize(key)} tip={tip} errs={errs}>
+    <Row label={label ?? humanize(key)} tip={tip} errs={errs} locked={locked}>
       {control}
     </Row>
   );
